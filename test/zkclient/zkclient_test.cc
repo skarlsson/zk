@@ -2,8 +2,8 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <zookeeper/zookeeper.h>
-#include "bolt/zookeeper/ZKClient.hpp"
-#include "bolt/testutils/ZooKeeperHarness.hpp"
+#include "ZKClient.hpp"
+#include "../ZooKeeperHarness.hpp"
 
 using namespace bolt;
 
@@ -22,7 +22,7 @@ TEST_F(ZooKeeperHarness, CreateNodeThatDoesNotExist) {
 
   EXPECT_TRUE(zk->existsSync("/foobar").ok());
   auto nodeTuple = zk->getSync("/foobar");
-  EXPECT_STREQ((char *)nodeTuple.data(), (char *)data->data());
+  EXPECT_STREQ((char *) nodeTuple.data(), (char *) data->data());
 }
 
 TEST_F(ZooKeeperHarness, SetNodeThatDoesExist) {
@@ -33,7 +33,7 @@ TEST_F(ZooKeeperHarness, SetNodeThatDoesExist) {
   auto result = zk->setSync("/foobar", std::move(data2));
   EXPECT_TRUE(result.ok());
   auto nodeTuple = zk->getSync("/foobar");
-  EXPECT_STREQ((char *)nodeTuple.data(), (char *)data2->data());
+  EXPECT_STREQ((char *) nodeTuple.data(), (char *) data2->data());
 }
 
 TEST_F(ZooKeeperHarness, createNode) {

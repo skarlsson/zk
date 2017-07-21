@@ -10,29 +10,29 @@ using namespace bolt;
 
 TEST_F(ZooKeeperLeaderElectionHarness, ctor) {
   // pop the leader (first one)
-  for(;;) {
+  for (;;) {
     leaders.pop_front(); // allow for zk conn to close
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    if(leaders.empty()) {
+    if (leaders.empty()) {
       break;
     }
 
     LOG(INFO) << "Leaders ID's left: "
               << std::accumulate(
-                   leaders.begin(), leaders.end(), std::string(),
-                   [](const std::string &a, std::shared_ptr<ZKLeader> b) {
-                     auto bstr = std::to_string(b->id());
-                     return (a.empty() ? bstr : a + "," + bstr);
-                   });
+                      leaders.begin(), leaders.end(), std::string(),
+                      [](const std::string &a, std::shared_ptr<ZKLeader> b) {
+                        auto bstr = std::to_string(b->id());
+                        return (a.empty() ? bstr : a + "," + bstr);
+                      });
 
 
     LOG(INFO) << "Leaders left: " << leaders.size();
     bool haveLeader = false;
     int maxTries = 100;
 
-    while(!haveLeader) {
-      for(auto &ptr : leaders) {
-        if(ptr->isLeader()) {
+    while (!haveLeader) {
+      for (auto &ptr : leaders) {
+        if (ptr->isLeader()) {
           LOG(INFO) << "Found leader: " << ptr->id();
           haveLeader = true;
           break;
@@ -42,7 +42,7 @@ TEST_F(ZooKeeperLeaderElectionHarness, ctor) {
       std::this_thread::yield();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-      if(maxTries-- < 0) {
+      if (maxTries-- < 0) {
         break;
       }
     }
@@ -56,8 +56,8 @@ TEST_F(ZooKeeperLeaderElectionHarness, randomPopingOrder) {
   int maxNumberOfAdditions = 20;
   const auto kHalfOfLuck = std::numeric_limits<uint64_t>::max() / 2;
   Random rand;
-  for(;;) {
-    if(rand.nextRand() > kHalfOfLuck) {
+  for (;;) {
+    if (rand.nextRand() > kHalfOfLuck) {
       leaders.pop_front();
     } else {
       leaders.pop_back();
@@ -65,36 +65,36 @@ TEST_F(ZooKeeperLeaderElectionHarness, randomPopingOrder) {
     // allow for zk conn to close
     std::this_thread::yield();
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    if(maxNumberOfAdditions-- > 0) {
+    if (maxNumberOfAdditions-- > 0) {
       leaders.push_back(std::make_shared<ZKLeader>(
-        zkUri, [](ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
-        [](int type, int state, std::string path, ZKClient *cli) {
-          LOG(INFO) << "testbody zoo cb";
-        }));
+              zkUri, [](ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
+              [](int type, int state, std::string path, ZKClient *cli) {
+                LOG(INFO) << "testbody zoo cb";
+              }));
       std::this_thread::yield();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    if(leaders.empty()) {
+    if (leaders.empty()) {
       break;
     }
 
     LOG(INFO) << "Leaders ID's left: "
               << std::accumulate(
-                   leaders.begin(), leaders.end(), std::string(),
-                   [](const std::string &a, std::shared_ptr<ZKLeader> b) {
-                     auto bstr = std::to_string(b->id());
-                     return (a.empty() ? bstr : a + "," + bstr);
-                   });
+                      leaders.begin(), leaders.end(), std::string(),
+                      [](const std::string &a, std::shared_ptr<ZKLeader> b) {
+                        auto bstr = std::to_string(b->id());
+                        return (a.empty() ? bstr : a + "," + bstr);
+                      });
 
 
     LOG(INFO) << "Leaders left: " << leaders.size();
     bool haveLeader = false;
     int maxTries = 100;
 
-    while(!haveLeader) {
-      for(auto &ptr : leaders) {
-        if(ptr->isLeader()) {
+    while (!haveLeader) {
+      for (auto &ptr : leaders) {
+        if (ptr->isLeader()) {
           LOG(INFO) << "Found leader: " << ptr->id();
           haveLeader = true;
           break;
@@ -104,7 +104,7 @@ TEST_F(ZooKeeperLeaderElectionHarness, randomPopingOrder) {
       std::this_thread::yield();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-      if(maxTries-- < 0) {
+      if (maxTries-- < 0) {
         break;
       }
     }
