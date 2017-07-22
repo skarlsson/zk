@@ -2,7 +2,7 @@
 
 
 std::string uuid() {
-  return "00000";
+  return "56912496-7904-4933-8b84-8042948df297";
 }
 
 

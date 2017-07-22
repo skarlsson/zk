@@ -17,7 +17,10 @@ namespace bolt {
           : zkUri_(zkUri), leadercb_(leaderfn), zkcb_(zkcb) {
     using namespace std::placeholders;
     auto cb = std::bind(&ZKLeader::zkCbWrapper, this, _1, _2, _3, _4);
-    const auto baseElectionPath = zkUri_.path() + "/election";
+    //const auto baseElectionPath = zkUri_.path() + "/election"
+    //here we shopuld probably get the path part of the uri...
+    const std::string baseElectionPath = "/election"; // svante
+
     const auto baseElectionId = baseElectionPath + "/" + uuid() + "_n_";
     zk_ = std::make_shared<ZKClient>(cb, zookeeperHostsFromUrl(zkUri_), 500, 0,
                                      true /*yield until connected*/);
@@ -76,8 +79,10 @@ namespace bolt {
 
   void ZKLeader::leaderElect(int type, int state, std::string path) {
 
-    const std::string baseElectionPath =
-            zkUri_.path() + "/election";
+    //const std::string baseElectionPath =
+    //        zkUri_.path() + "/election";
+
+    const std::string baseElectionPath = "/election"; // svante add the path without hostname TBD
 
     auto zkret = zk_->childrenSync(baseElectionPath, true);
     auto retcode = zkret.result;

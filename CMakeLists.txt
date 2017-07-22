@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.11)
 
 set(CMAKE_CXX_STANDARD 14)
 
-find_package(Boost COMPONENTS log_setup log thread program_options filesystem system REQUIRED)
+find_package(Boost COMPONENTS regex log_setup log thread program_options filesystem system REQUIRED)
 set(BOOST_LIBS
         ${Boost_LOG_LIBRARY}
         ${Boost_LOG_SETUP_LIBRARY}
@@ -10,6 +10,7 @@ set(BOOST_LIBS
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_THREAD_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
+        ${Boost_REGEX_LIBRARY}
         pthread
         rt
         c
