@@ -10,12 +10,14 @@
 using namespace std::chrono_literals;
 using namespace bolt;
 
-folly::Uri s_zkUri("zk:127.0.0.1:2181");
+std::string s_zkUri("127.0.0.1:2181,192.168.100.44:2181/nissegul");
+const std::string s_uuid = "56912496-7904-4933-8b84-8042948df297";
 
 void init(std::deque<std::shared_ptr<bolt::ZKLeader>> &leaders, size_t count) {
 
   for (int i = 0; i != count; ++i) {
     leaders.push_back(std::make_shared<bolt::ZKLeader>(s_zkUri,
+                                                       s_uuid,
                                                        [](bolt::ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
                                                        [](int type, int state, std::string path, bolt::ZKClient *) {
                                                          LOG(INFO) << "callback type:" << type << ", state: " << state
@@ -90,7 +92,9 @@ int main(int argc, char **argv) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
       if (maxNumberOfAdditions-- > 0) {
         leaders.push_back(std::make_shared<ZKLeader>(
-                s_zkUri, [](ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
+                s_zkUri,
+                s_uuid,
+                [](ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
                 [](int type, int state, std::string path, ZKClient *cli) {
                   LOG(INFO) << "testbody zoo cb";
                 }));

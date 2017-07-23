@@ -6,23 +6,21 @@
 #include "utils.h"
 
 namespace bolt {
-  const folly::Uri &ZKLeader::uri() const { return zkUri_; }
+  std::string ZKLeader::uri() const { return zkUri_.str(); }
 
   std::shared_ptr<ZKClient> ZKLeader::client() const { return zk_; }
 
 
-  ZKLeader::ZKLeader(folly::Uri zkUri,
+  ZKLeader::ZKLeader(std::string zkUri,
+                     std::string uuid,
                      std::function<void(ZKLeader *)> leaderfn,
                      std::function<void(int, int, std::string, ZKClient *)> zkcb)
-          : zkUri_(zkUri), leadercb_(leaderfn), zkcb_(zkcb) {
+          : zkUri_(zkUri), uuid_(uuid), leadercb_(leaderfn), zkcb_(zkcb) {
     using namespace std::placeholders;
     auto cb = std::bind(&ZKLeader::zkCbWrapper, this, _1, _2, _3, _4);
-    //const auto baseElectionPath = zkUri_.path() + "/election"
-    //here we shopuld probably get the path part of the uri...
-    const std::string baseElectionPath = "/election"; // svante
-
-    const auto baseElectionId = baseElectionPath + "/" + uuid() + "_n_";
-    zk_ = std::make_shared<ZKClient>(cb, zookeeperHostsFromUrl(zkUri_), 500, 0,
+    const auto baseElectionPath = zkUri_.path() + "/election";
+    const auto baseElectionId = baseElectionPath + "/" + uuid_ + "_n_";
+    zk_ = std::make_shared<ZKClient>(cb, zkUri_.hosts(), 500, 0,
                                      true /*yield until connected*/);
     LOG(INFO) << "Watching: " << baseElectionPath;
     auto zkret = zk_->existsSync(baseElectionPath, true);
@@ -79,11 +77,7 @@ namespace bolt {
 
   void ZKLeader::leaderElect(int type, int state, std::string path) {
 
-    //const std::string baseElectionPath =
-    //        zkUri_.path() + "/election";
-
-    const std::string baseElectionPath = "/election"; // svante add the path without hostname TBD
-
+    const std::string baseElectionPath = zkUri_.path() + "/election";
     auto zkret = zk_->childrenSync(baseElectionPath, true);
     auto retcode = zkret.result;
 

@@ -3,8 +3,8 @@
 #include <memory>
 #include <boost/optional.hpp>
 #include <atomic>
-#include <folly/Uri.h>
 #include "ZKClient.hpp"
+#include "utils.h"
 
 namespace bolt {
   class ZKLeader {
@@ -16,7 +16,8 @@ namespace bolt {
     // Note that this is a very simple leader election.
     // it is prone to the herd effect. Since our scheduler list will be small
     // this is considered OK behavior.
-    ZKLeader(folly::Uri zkUri,
+    ZKLeader(std::string zkUri,
+             std::string uuid,
              std::function<void(ZKLeader *)> leaderfn,
              std::function<void(int, int, std::string, ZKClient *)> zkcb);
 
@@ -26,7 +27,7 @@ namespace bolt {
 
     std::string ephemeralPath() const;
 
-    const folly::Uri &uri() const;
+    std::string uri() const;
 
     std::shared_ptr<ZKClient> client() const;
 
@@ -37,7 +38,8 @@ namespace bolt {
 
     void leaderElect(int type, int state, std::string path);
 
-    folly::Uri zkUri_;
+    zookeeper_connection_uri zkUri_;
+    std::string uuid_;
     std::function<void(ZKLeader *)> leadercb_;
     std::function<void(int, int, std::string, ZKClient *)> zkcb_;
     std::atomic<bool> isLeader_{false};
