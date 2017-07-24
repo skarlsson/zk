@@ -25,13 +25,9 @@ namespace bolt {
                                const struct Stat *stat,
                                const void *data);
 
-  static std::shared_ptr<Promise<ZKResult>> promiseFromData(const void *data) {
-    const Promise<ZKResult> *constPromise =
-            static_cast<const Promise<ZKResult> *>(data);
-
-    Promise<ZKResult> *promise = const_cast<Promise<ZKResult> *>(constPromise);
-
-    return std::shared_ptr<Promise<ZKResult>>(promise);
+  static std::unique_ptr<std::promise<ZKResult>> promiseFromData(const void *data) {
+    std::unique_ptr<std::promise<ZKResult>> promise((std::promise<ZKResult> *) data);
+    return promise;
   }
 
 // copy from stout / modified w/ __builtin_unreachable()
@@ -174,9 +170,9 @@ namespace bolt {
                                const char *value,
                                int value_len,
                                const struct Stat *stat,
-                               const void *data) {
+                               const void *user_data) {
 
-    auto promise = promiseFromData(data);
+    auto promise = promiseFromData(user_data);
 
     struct ZKResult result(rc, stat ? boost::optional<Stat>(*stat) : boost::none);
 
@@ -184,21 +180,21 @@ namespace bolt {
       result.buff = folly::IOBuf::copyBuffer((void *) value, value_len);
     }
 
-    promise->setValue(std::move(result));
+    promise->set_value(std::move(result));
   }
 
   static void stringsAndStatCompletionCb(int rc,
                                          const struct String_vector *strs,
                                          const struct Stat *stat,
-                                         const void *data) {
-    auto promise = promiseFromData(data);
+                                         const void *user_data) {
+    auto promise = promiseFromData(user_data);
     struct ZKResult result(rc, stat ? boost::optional<Stat>(*stat) : boost::none);
 
     for (auto i = 0; strs && i < strs->count; ++i) {
       result.strings.push_back(strs->data[i]);
     }
 
-    promise->setValue(std::move(result));
+    promise->set_value(std::move(result));
   }
 
   std::string ZKClient::printZookeeperEventType(int type) {
@@ -255,24 +251,24 @@ namespace bolt {
 
   static void
   statCompletionCb(int rc, const struct Stat *stat, const void *data) {
-
     auto promise = promiseFromData(data);
     struct ZKResult result(rc, stat ? boost::optional<Stat>(*stat) : boost::none);
-    promise->setValue(std::move(result));
+    promise->set_value(std::move(result));
   }
 
-  Future<ZKResult> ZKClient::get(std::string path, bool watch) {
-    Promise<ZKResult> *promise = new Promise<ZKResult>;
+  std::future<ZKResult> ZKClient::get_async(std::string path, bool watch) {
+    auto promise = std::make_unique<std::promise<ZKResult>>();
+    auto future = promise->get_future();
 
     if (!ready) {
-      promise->setException(std::runtime_error("Not connected"));
+      promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
-      zoo_aget(zoo_, path.c_str(), watch ? 1 : 0, &dataCompletionCb,
-               static_cast<void *>(promise));
+      zoo_aget(zoo_, path.c_str(), watch ? 1 : 0, &dataCompletionCb, static_cast<void *>(promise.release()));
     }
 
-    return promise->getFuture();
+    return future;
   }
+
 
   const clientid_t *ZKClient::getClientId() {
     if (!zoo_ || getState() == ZSESSIONEXPIRED) {
@@ -282,7 +278,7 @@ namespace bolt {
   }
 
 
-  ZKResult ZKClient::getSync(std::string path, bool watch) {
+  ZKResult ZKClient::get(std::string path, bool watch) {
     struct Stat stat;
     int bufLen = 1 << 20; // 1MB is max for zookeeper
     std::unique_ptr<char[]> buf(new char[bufLen]());
@@ -304,24 +300,25 @@ namespace bolt {
     return result;
   }
 
-  Future<ZKResult> ZKClient::set(std::string path,
-                                 std::unique_ptr<folly::IOBuf> &&val,
-                                 int version) {
-    Promise<ZKResult> *promise = new Promise<ZKResult>;
+  std::future<ZKResult> ZKClient::set_async(std::string path,
+                                            std::unique_ptr<folly::IOBuf> &&val,
+                                            int version) {
+    auto promise = std::make_unique<std::promise<ZKResult>>();
+    auto future = promise->get_future();
 
     if (!ready) {
-      promise->setException(std::runtime_error("Not connected"));
+      promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
       zoo_aset(zoo_, path.c_str(), (char *) val->data(), val->length(), version,
-               &statCompletionCb, static_cast<void *>(promise));
+               &statCompletionCb, static_cast<void *>(promise.release()));
     }
 
-    return promise->getFuture();
+    return future;
   }
 
-  ZKResult ZKClient::setSync(std::string path,
-                             std::unique_ptr<folly::IOBuf> &&val,
-                             int version) {
+  ZKResult ZKClient::set(std::string path,
+                         std::unique_ptr<folly::IOBuf> &&val,
+                         int version) {
 
     struct Stat stat;
     int rc = zoo_set2(zoo_, path.c_str(), (const char *) val->data(),
@@ -337,23 +334,24 @@ namespace bolt {
     return result;
   }
 
-  Future<ZKResult> ZKClient::children(std::string path, bool watch) {
-    Promise<ZKResult> *promise = new Promise<ZKResult>;
+  std::future<ZKResult> ZKClient::children_async(std::string path, bool watch) {
+    auto promise = std::make_unique<std::promise<ZKResult>>();
+    auto future = promise->get_future();
 
     if (!ready) {
-      promise->setException(std::runtime_error("Not connected"));
+      promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
       // zoo_aget_children2(zhandle_t *zh, const char *path, int watch,
       //    strings_stat_completion_t completion, const void *data);
       zoo_aget_children2(zoo_, path.c_str(), watch ? 1 : 0,
                          stringsAndStatCompletionCb,
-                         static_cast<void *>(promise));
+                         static_cast<void *>(promise.release()));
     }
 
-    return promise->getFuture();
+    return future;
   }
 
-  ZKResult ZKClient::childrenSync(std::string path, bool watch) {
+  ZKResult ZKClient::children(std::string path, bool watch) {
 
     struct String_vector strs{
             0, nullptr
@@ -376,20 +374,21 @@ namespace bolt {
     return result;
   }
 
-  Future<ZKResult> ZKClient::exists(std::string path, bool watch) {
-    Promise<ZKResult> *p = new Promise<ZKResult>;
+  std::future<ZKResult> ZKClient::exists_async(std::string path, bool watch) {
+    auto promise = std::make_unique<std::promise<ZKResult>>();
+    auto future = promise->get_future();
 
     if (!ready) {
-      p->setException(std::runtime_error("Not connected"));
+      promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
       zoo_aexists(zoo_, path.c_str(), watch ? 1 : 0, &statCompletionCb,
-                  static_cast<void *>(p));
+                  static_cast<void *>(promise.release()));
     }
 
-    return p->getFuture();
+    return future;
   }
 
-  ZKResult ZKClient::existsSync(std::string path, bool watch) {
+  ZKResult ZKClient::exists(std::string path, bool watch) {
 
     struct Stat stat;
     int rc = zoo_exists(zoo_, path.c_str(), watch ? 1 : 0, &stat);
@@ -412,30 +411,31 @@ namespace bolt {
               (void *) value, std::char_traits<char>::length(value));
     }
 
-    promise->setValue(std::move(result));
+    promise->set_value(std::move(result));
   }
 
-  Future<ZKResult> ZKClient::create(std::string path,
-                                    std::unique_ptr<folly::IOBuf> &&val,
-                                    ACL_vector *acl,
-                                    int flags) {
+  std::future<ZKResult> ZKClient::create_async(std::string path,
+                                               std::unique_ptr<folly::IOBuf> &&val,
+                                               ACL_vector *acl,
+                                               int flags) {
     VLOG(1) << "Create path: " << path;
-    Promise<ZKResult> *p = new Promise<ZKResult>;
+    auto promise = std::make_unique<std::promise<ZKResult>>();
+    auto future = promise->get_future();
 
     if (!ready) {
-      p->setException(std::runtime_error("Not connected"));
+      promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
       zoo_acreate(zoo_, path.c_str(), (char *) val->data(), val->length(), acl,
-                  flags, &stringCompletionCb, static_cast<void *>(p));
+                  flags, &stringCompletionCb, static_cast<void *>(promise.release()));
     }
 
-    return p->getFuture();
+    return future;
   }
 
-  ZKResult ZKClient::createSync(std::string path,
-                                std::unique_ptr<folly::IOBuf> &&val,
-                                ACL_vector *acl,
-                                int flags) {
+  ZKResult ZKClient::create(std::string path,
+                            std::unique_ptr<folly::IOBuf> &&val,
+                            ACL_vector *acl,
+                            int flags) {
 
     std::unique_ptr<char[]> pathBuf(new char[1024]());
     int rc = zoo_create(zoo_, path.c_str(), (const char *) val->data(),
@@ -461,23 +461,23 @@ namespace bolt {
     auto promise = promiseFromData(data);
 
     struct ZKResult result(rc);
-    promise->setValue(std::move(result));
+    promise->set_value(std::move(result));
   }
 
-  Future<ZKResult> ZKClient::del(std::string path, int version) {
-    Promise<ZKResult> *p = new Promise<ZKResult>;
+  std::future<ZKResult> ZKClient::del_async(std::string path, int version) {
+    auto promise = std::make_unique<std::promise<ZKResult>>();
+    auto future = promise->get_future();
 
     if (!ready) {
-      p->setException(std::runtime_error("Not connected"));
+      promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
-      zoo_adelete(zoo_, path.c_str(), version, &voidCompletionCb,
-                  static_cast<void *>(p));
+      zoo_adelete(zoo_, path.c_str(), version, &voidCompletionCb, static_cast<void *>(promise.release()));
     }
 
-    return p->getFuture();
+    return future;
   }
 
-  ZKResult ZKClient::delSync(std::string path, int version) {
+  ZKResult ZKClient::del(std::string path, int version) {
     int rc = zoo_delete(zoo_, path.c_str(), version);
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {

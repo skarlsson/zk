@@ -3,7 +3,6 @@
 #include "ZKLeader.hpp"
 //#include "url_utils.hpp"
 //#include "string_utils.hpp"
-#include "utils.h"
 
 namespace bolt {
   std::string ZKLeader::uri() const { return zkUri_.str(); }
@@ -23,7 +22,7 @@ namespace bolt {
     zk_ = std::make_shared<ZKClient>(cb, zkUri_.hosts(), 500, 0,
                                      true /*yield until connected*/);
     LOG(INFO) << "Watching: " << baseElectionPath;
-    auto zkret = zk_->existsSync(baseElectionPath, true);
+    auto zkret = zk_->exists(baseElectionPath, true);
 
     if (zkret.result == ZNONODE) {
       touchZKPathSync(baseElectionPath);
@@ -33,8 +32,8 @@ namespace bolt {
     }
 
     LOG(INFO) << "Creating election node: " << baseElectionId;
-    zkret = zk_->createSync(baseElectionId, std::make_unique<IOBuf>(),
-                            &ZOO_OPEN_ACL_UNSAFE, ZOO_SEQUENCE | ZOO_EPHEMERAL);
+    zkret = zk_->create(baseElectionId, std::make_unique<IOBuf>(),
+                        &ZOO_OPEN_ACL_UNSAFE, ZOO_SEQUENCE | ZOO_EPHEMERAL);
     CHECK(zkret.result == ZOK)
     << "Couldn't create election path: " << baseElectionId
     << ", ret: " << zkret.result;
@@ -60,12 +59,12 @@ namespace bolt {
       }
 
       path += "/" + p;
-      auto zkret = zk_->existsSync(path);
+      auto zkret = zk_->exists(path);
 
       if (zkret.result == ZNONODE) {
         LOG(INFO) << "Creating directory: " << path;
-        zkret = zk_->createSync(path, std::make_unique<IOBuf>(),
-                                &ZOO_OPEN_ACL_UNSAFE, 0);
+        zkret = zk_->create(path, std::make_unique<IOBuf>(),
+                            &ZOO_OPEN_ACL_UNSAFE, 0);
         CHECK(zkret.result == ZOK)
         << "failed to create path, code: " << zkret.result;
       } else {
@@ -78,7 +77,7 @@ namespace bolt {
   void ZKLeader::leaderElect(int type, int state, std::string path) {
 
     const std::string baseElectionPath = zkUri_.path() + "/election";
-    auto zkret = zk_->childrenSync(baseElectionPath, true);
+    auto zkret = zk_->children(baseElectionPath, true);
     auto retcode = zkret.result;
 
     if (retcode == -1 || retcode == ZCLOSING || retcode == ZSESSIONEXPIRED) {

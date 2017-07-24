@@ -1,6 +1,7 @@
 #include "ZKLeader.hpp"
 #include <iostream>
-
+#include <deque>
+#include <numeric>
 //#include <bolt/glog_init.hpp>
 //#include <gtest/gtest.h>
 //#include "bolt/utils/Random.hpp"
@@ -79,10 +80,9 @@ int main(int argc, char **argv) {
   init(leaders, 20);
   {
     int maxNumberOfAdditions = 20;
-    const auto kHalfOfLuck = std::numeric_limits<uint64_t>::max() / 2;
-    Random rand;
+    const auto kHalfOfLuck = RAND_MAX / 2;
     for (;;) {
-      if (rand.rand64() > kHalfOfLuck) {
+      if (std::rand() > kHalfOfLuck) {
         leaders.pop_front();
       } else {
         leaders.pop_back();

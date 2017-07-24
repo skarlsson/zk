@@ -1,13 +1,13 @@
 #ifndef BOLT_ZOOKEEPER_HPP
 #define BOLT_ZOOKEEPER_HPP
 
+#include <future>
 #include <tuple>
 #include <functional>
 #include <type_traits>
 #include <utility>
 #include <thread>
 #include <zookeeper/zookeeper.h>
-#include <folly/futures/Future.h>
 #include <folly/io/IOBuf.h>
 #include <boost/optional.hpp>
 #include <atomic>
@@ -49,7 +49,7 @@ namespace bolt {
     //                   , const char *tag, struct Stat *v);
     // int deserialize_Stat(struct iarchive *in
     //                     , const char *tag, struct Stat*v);
-    // void deallocate_Stat(struct Stat*);
+    // void deallocate_Stat(struct Stat*); std::future
     boost::optional<Stat> status;
     std::unique_ptr<folly::IOBuf> buff;
     // represents the strings api of zookeeper
@@ -86,7 +86,7 @@ namespace bolt {
     template<class F>
     ZKClient(F &&watch,
              const std::string &hosts = "127.0.0.1:2181",
-             int timeout = 30, // ms
+             int timeout = 30, // ms std::future
              int flags = 0,
              bool block = true)
             : watch_(watch), ready(false), hosts_(hosts), timeout_(timeout), flags_(flags) {
@@ -95,38 +95,38 @@ namespace bolt {
 
     ~ZKClient();
 
-    Future<ZKResult> children(std::string path, bool watch = false);
+    std::future<ZKResult> children_async(std::string path, bool watch = false);
 
-    ZKResult childrenSync(std::string path, bool watch = false);
+    ZKResult children(std::string path, bool watch = false);
 
-    Future<ZKResult> get(std::string path, bool watch = false);
+    std::future<ZKResult> get_async(std::string path, bool watch = false);
 
-    ZKResult getSync(std::string path, bool watch = false);
+    ZKResult get(std::string path, bool watch = false);
 
-    Future<ZKResult>
-    set(std::string path, std::unique_ptr<folly::IOBuf> &&val, int version = -1);
+    std::future<ZKResult>
+    set_async(std::string path, std::unique_ptr<folly::IOBuf> &&val, int version = -1);
 
-    ZKResult setSync(std::string path,
-                     std::unique_ptr<folly::IOBuf> &&val,
-                     int version = -1);
+    ZKResult set(std::string path,
+                 std::unique_ptr<folly::IOBuf> &&val,
+                 int version = -1);
 
-    Future<ZKResult> exists(std::string path, bool watch = false);
+    std::future<ZKResult> exists_async(std::string path, bool watch = false);
 
-    ZKResult existsSync(std::string path, bool watch = false);
+    ZKResult exists(std::string path, bool watch = false);
 
-    Future<ZKResult> create(std::string path,
-                            std::unique_ptr<folly::IOBuf> &&val,
-                            ACL_vector *acl,
-                            int flags);
+    std::future<ZKResult> create_async(std::string path,
+                                       std::unique_ptr<folly::IOBuf> &&val,
+                                       ACL_vector *acl,
+                                       int flags);
 
-    ZKResult createSync(std::string path,
-                        std::unique_ptr<folly::IOBuf> &&val,
-                        ACL_vector *acl,
-                        int flags);
+    ZKResult create(std::string path,
+                    std::unique_ptr<folly::IOBuf> &&val,
+                    ACL_vector *acl,
+                    int flags);
 
-    Future<ZKResult> del(std::string path, int version = -1);
+    std::future<ZKResult> del_async(std::string path, int version = -1);
 
-    ZKResult delSync(std::string path, int version = -1);
+    ZKResult del(std::string path, int version = -1);
 
     const clientid_t *getClientId();
 
