@@ -14,7 +14,7 @@
 #include <limits>
 #include <mutex>
 
-namespace bolt {
+namespace kspp {
   using namespace ::folly;
 
   class ZKClient;

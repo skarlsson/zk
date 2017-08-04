@@ -1,5 +1,5 @@
 #include <zookeeper/zookeeper.h>
 
-namespace bolt {
+namespace kspp {
   void failFastOnZooKeeperGet(int rc);
 }

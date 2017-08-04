@@ -4,7 +4,7 @@
 using namespace std::chrono_literals;
 
 int main(int argc, char **argv) {
-  bolt::ZKClient zk([](int type, int state, std::string path, bolt::ZKClient *) {
+  kspp::ZKClient zk([](int type, int state, std::string path, kspp::ZKClient *) {
     std::cerr << "callback type:" << type << ", state: " << state << ", path:" << path << std::endl;
   });
 

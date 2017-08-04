@@ -1,10 +1,9 @@
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include "ZKLeader.hpp"
-//#include "url_utils.hpp"
-//#include "string_utils.hpp"
 
-namespace bolt {
+
+namespace kspp {
   std::string ZKLeader::uri() const { return zkUri_.str(); }
 
   std::shared_ptr<ZKClient> ZKLeader::client() const { return zk_; }

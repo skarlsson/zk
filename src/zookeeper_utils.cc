@@ -2,7 +2,7 @@
 #include <set>
 #include <glog/logging.h>
 
-namespace bolt {
+namespace kspp {
   void failFastOnZooKeeperGet(int rc) {
     static std::set<int> failstatus{
             ZNOAUTH, ZBADARGUMENTS, ZINVALIDSTATE, ZMARSHALLINGERROR};

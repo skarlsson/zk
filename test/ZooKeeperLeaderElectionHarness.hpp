@@ -6,7 +6,7 @@
 #include "bolt/testutils/SubprocessHarness.hpp"
 #include "bolt/zookeeper/ZKLeader.hpp"
 
-namespace bolt {
+namespace kspp {
   static const std::vector<std::string> kZooEnv{
           "ZOO_LOG4J_PROP=INFO,ROLLINGFILE",
           "CLASSPATH=/usr/share/java/jline.jar:/usr/share/java/log4j-1.2.jar:"

@@ -6,7 +6,7 @@
 #include "ZKClient.hpp"
 #include "utils.h"
 
-namespace bolt {
+namespace kspp {
   class ZKLeader {
   public:
     // utility functions

@@ -1,6 +1,6 @@
 #include "ZKClient.hpp"
 
-namespace bolt {
+namespace kspp {
   using namespace ::folly;
 
   static const int kMaxTriesPerSyncOperation = 10;

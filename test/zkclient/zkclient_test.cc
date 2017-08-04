@@ -5,7 +5,7 @@
 #include "ZKClient.hpp"
 #include "../ZooKeeperHarness.hpp"
 
-using namespace bolt;
+using namespace kspp;
 
 TEST_F(ZooKeeperHarness, CanNotSetNodeThatDoesNotExist) {
   auto data = folly::IOBuf::copyBuffer("thingo", 6);
