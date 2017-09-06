@@ -21,13 +21,12 @@ SET(CSI_INCLUDE_PATH ${Boost_INCLUDE_DIR})
 SET(CSI_INCLUDE_PATH
         ${CSI_INCLUDE_PATH}
         ${CMAKE_SOURCE_DIR}/../zk/src
-        ${CMAKE_SOURCE_DIR}/../folly
         )
 file(GLOB zk_lib_files
         ${CMAKE_CURRENT_SOURCE_DIR}/../zk/src/*.*
         )
 add_library(csi-zk STATIC ${zk_lib_files})
-SET(LIBZK_LIBS csi-zk zookeeper_mt folly glog)
+SET(LIBZK_LIBS csi-zk zookeeper_mt glog)
 
 SET(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/bin)

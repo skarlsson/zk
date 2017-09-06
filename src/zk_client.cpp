@@ -1,8 +1,7 @@
-#include "ZKClient.hpp"
+#include "zk_client.h"
+#include <glog/logging.h>
 
 namespace kspp {
-  using namespace ::folly;
-
   static const int kMaxTriesPerSyncOperation = 10;
 
   static void
@@ -31,7 +30,7 @@ namespace kspp {
   }
 
 // copy from stout / modified w/ __builtin_unreachable()
-  bool ZKClient::retryable(int rc) {
+  bool zk_client::retryable(int rc) {
     switch (rc) {
       case ZCONNECTIONLOSS:
       case ZOPERATIONTIMEOUT:
@@ -70,7 +69,7 @@ namespace kspp {
   }
 
 
-  void ZKClient::init(bool block) {
+  void zk_client::init(bool block) {
     DLOG(INFO) << "Initializing zookeeper connection: " << hosts_;
     CHECK(zoo_ == nullptr) << "Doubly initializing zookeeper";
     CHECK(!hosts_.empty()) << "Passed in an invalid host string";
@@ -81,7 +80,7 @@ namespace kspp {
               << ", session id: " << getSessionId();
   }
 
-  void ZKClient::destroy() {
+  void zk_client::destroy() {
     if (!zoo_) {
       return;
     }
@@ -93,9 +92,9 @@ namespace kspp {
     zoo_ = nullptr;
   }
 
-  ZKClient::~ZKClient() { destroy(); }
+  zk_client::~zk_client() { destroy(); }
 
-  void ZKClient::rawInitHandle(ZKClient *cli) {
+  void zk_client::rawInitHandle(zk_client *cli) {
     std::lock_guard<std::mutex> xxx(cli->rawInitMutex_);
     if (cli->zoo_ && cli->getState() != ZOO_EXPIRED_SESSION_STATE) {
       return;
@@ -150,7 +149,7 @@ namespace kspp {
   static void
   watchCb(zhandle_t *zh, int type, int state, const char *cpath, void *ctx) {
     DCHECK(ctx) << "invalid context on the callback";
-    ZKClient *self = static_cast<ZKClient *>(ctx);
+    zk_client *self = static_cast<zk_client *>(ctx);
 
     if (type == ZOO_SESSION_EVENT) {
       if (state == ZOO_CONNECTED_STATE) {
@@ -177,7 +176,7 @@ namespace kspp {
     struct ZKResult result(rc, stat ? boost::optional<Stat>(*stat) : boost::none);
 
     if (value) {
-      result.buff = folly::IOBuf::copyBuffer((void *) value, value_len);
+      result.buff = std::string((const char *) value, (size_t) value_len);
     }
 
     promise->set_value(std::move(result));
@@ -197,7 +196,7 @@ namespace kspp {
     promise->set_value(std::move(result));
   }
 
-  std::string ZKClient::printZookeeperEventType(int type) {
+  std::string zk_client::printZookeeperEventType(int type) {
     if (type == ZOO_CREATED_EVENT) {
       return "ZOO_CREATED_EVENT";
     }
@@ -225,7 +224,7 @@ namespace kspp {
     return "UNKNOWN_EVENT: " + std::to_string(type);
   }
 
-  std::string ZKClient::printZookeeperState(int state) {
+  std::string zk_client::printZookeeperState(int state) {
     if (state == ZOO_EXPIRED_SESSION_STATE) {
       return "ZOO_EXPIRED_SESSION_STATE";
     }
@@ -256,7 +255,7 @@ namespace kspp {
     promise->set_value(std::move(result));
   }
 
-  std::future<ZKResult> ZKClient::get_async(std::string path, bool watch) {
+  std::future<ZKResult> zk_client::get_async(std::string path, bool watch) {
     auto promise = std::make_unique<std::promise<ZKResult>>();
     auto future = promise->get_future();
 
@@ -270,7 +269,7 @@ namespace kspp {
   }
 
 
-  const clientid_t *ZKClient::getClientId() {
+  const clientid_t *zk_client::getClientId() {
     if (!zoo_ || getState() == ZSESSIONEXPIRED) {
       return nullptr;
     }
@@ -278,16 +277,15 @@ namespace kspp {
   }
 
 
-  ZKResult ZKClient::get(std::string path, bool watch) {
+  ZKResult zk_client::get(std::string path, bool watch) {
     struct Stat stat;
     int bufLen = 1 << 20; // 1MB is max for zookeeper
     std::unique_ptr<char[]> buf(new char[bufLen]());
-    int rc =
-            zoo_get(zoo_, path.c_str(), watch ? 1 : 0, buf.get(), &bufLen, &stat);
+    int rc = zoo_get(zoo_, path.c_str(), watch ? 1 : 0, buf.get(), &bufLen, &stat);
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {
       CHECK(getState() != ZOO_AUTH_FAILED_STATE);
-      ZKClient::rawInitHandle(this);
+      zk_client::rawInitHandle(this);
       rc = zoo_get(zoo_, path.c_str(), watch ? 1 : 0, buf.get(), &bufLen, &stat);
     }
 
@@ -295,13 +293,13 @@ namespace kspp {
       return ZKResult(rc);
     }
 
-    struct ZKResult result(rc, stat, folly::IOBuf::copyBuffer(buf.get(), bufLen));
+    struct ZKResult result(rc, stat, std::string(buf.get(), bufLen));
 
     return result;
   }
 
-  std::future<ZKResult> ZKClient::set_async(std::string path,
-                                            std::unique_ptr<folly::IOBuf> &&val,
+  std::future<ZKResult> zk_client::set_async(std::string path,
+                                            std::string val,
                                             int version) {
     auto promise = std::make_unique<std::promise<ZKResult>>();
     auto future = promise->get_future();
@@ -309,32 +307,27 @@ namespace kspp {
     if (!ready) {
       promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
-      zoo_aset(zoo_, path.c_str(), (char *) val->data(), val->length(), version,
+      zoo_aset(zoo_, path.c_str(), &val[0], val.size(), version,
                &statCompletionCb, static_cast<void *>(promise.release()));
     }
 
     return future;
   }
 
-  ZKResult ZKClient::set(std::string path,
-                         std::unique_ptr<folly::IOBuf> &&val,
-                         int version) {
-
+  ZKResult zk_client::set(std::string path, std::string val, int version) {
     struct Stat stat;
-    int rc = zoo_set2(zoo_, path.c_str(), (const char *) val->data(),
-                      val->length(), version, &stat);
+    int rc = zoo_set2(zoo_, path.c_str(), &val[0], val.size(), version, &stat);
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {
       CHECK(getState() != ZOO_AUTH_FAILED_STATE);
-      ZKClient::rawInitHandle(this);
-      rc = zoo_set2(zoo_, path.c_str(), (const char *) val->data(), val->length(),
-                    version, &stat);
+      zk_client::rawInitHandle(this);
+      rc = zoo_set2(zoo_, path.c_str(), &val[0], val.size(), version, &stat);
     }
     struct ZKResult result(rc, stat);
     return result;
   }
 
-  std::future<ZKResult> ZKClient::children_async(std::string path, bool watch) {
+  std::future<ZKResult> zk_client::children_async(std::string path, bool watch) {
     auto promise = std::make_unique<std::promise<ZKResult>>();
     auto future = promise->get_future();
 
@@ -351,7 +344,7 @@ namespace kspp {
     return future;
   }
 
-  ZKResult ZKClient::children(std::string path, bool watch) {
+  ZKResult zk_client::children(std::string path, bool watch) {
 
     struct String_vector strs{
             0, nullptr
@@ -361,7 +354,7 @@ namespace kspp {
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {
       CHECK(getState() != ZOO_AUTH_FAILED_STATE);
-      ZKClient::rawInitHandle(this);
+      zk_client::rawInitHandle(this);
       rc = zoo_get_children(zoo_, path.c_str(), watch ? 1 : 0, &strs);
     }
     struct ZKResult result(rc, stat);
@@ -374,7 +367,7 @@ namespace kspp {
     return result;
   }
 
-  std::future<ZKResult> ZKClient::exists_async(std::string path, bool watch) {
+  std::future<ZKResult> zk_client::exists_async(std::string path, bool watch) {
     auto promise = std::make_unique<std::promise<ZKResult>>();
     auto future = promise->get_future();
 
@@ -388,14 +381,14 @@ namespace kspp {
     return future;
   }
 
-  ZKResult ZKClient::exists(std::string path, bool watch) {
+  ZKResult zk_client::exists(std::string path, bool watch) {
 
     struct Stat stat;
     int rc = zoo_exists(zoo_, path.c_str(), watch ? 1 : 0, &stat);
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {
       CHECK(getState() != ZOO_AUTH_FAILED_STATE);
-      ZKClient::rawInitHandle(this);
+      zk_client::rawInitHandle(this);
       rc = zoo_exists(zoo_, path.c_str(), watch ? 1 : 0, &stat);
     }
     struct ZKResult result(rc, stat);
@@ -407,15 +400,14 @@ namespace kspp {
     struct ZKResult result(rc);
 
     if (value) {
-      result.buff = folly::IOBuf::copyBuffer(
-              (void *) value, std::char_traits<char>::length(value));
+      result.buff = std::string(value, std::char_traits<char>::length(value)); // TBD svante kolla!!!
     }
 
     promise->set_value(std::move(result));
   }
 
-  std::future<ZKResult> ZKClient::create_async(std::string path,
-                                               std::unique_ptr<folly::IOBuf> &&val,
+  std::future<ZKResult> zk_client::create_async(std::string path,
+                                               std::string val,
                                                ACL_vector *acl,
                                                int flags) {
     VLOG(1) << "Create path: " << path;
@@ -425,46 +417,40 @@ namespace kspp {
     if (!ready) {
       promise->set_exception(std::make_exception_ptr(std::runtime_error("Not connected")));
     } else {
-      zoo_acreate(zoo_, path.c_str(), (char *) val->data(), val->length(), acl,
+      zoo_acreate(zoo_, path.c_str(), &val[0], val.size(), acl,
                   flags, &stringCompletionCb, static_cast<void *>(promise.release()));
     }
 
     return future;
   }
 
-  ZKResult ZKClient::create(std::string path,
-                            std::unique_ptr<folly::IOBuf> &&val,
+  ZKResult zk_client::create(std::string path,
+                            std::string val,
                             ACL_vector *acl,
                             int flags) {
 
     std::unique_ptr<char[]> pathBuf(new char[1024]());
-    int rc = zoo_create(zoo_, path.c_str(), (const char *) val->data(),
-                        val->length(), acl, flags, pathBuf.get(), 1024);
+    int rc = zoo_create(zoo_, path.c_str(), &val[0], val.size(), acl, flags, pathBuf.get(), 1024);
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {
       CHECK(getState() != ZOO_AUTH_FAILED_STATE);
-      ZKClient::rawInitHandle(this);
-      rc = zoo_create(zoo_, path.c_str(), (const char *) val->data(),
-                      val->length(), acl, flags, pathBuf.get(), 1024);
+      zk_client::rawInitHandle(this);
+      rc = zoo_create(zoo_, path.c_str(), &val[0], val.size(), acl, flags, pathBuf.get(), 1024);
     }
 
     struct ZKResult result(
             rc, boost::none,
-            folly::IOBuf::copyBuffer(pathBuf.get(),
-                                     std::char_traits<char>::length(pathBuf.get())));
-
+            std::string(pathBuf.get(), std::char_traits<char>::length(pathBuf.get())));
     return result;
   }
 
   static void voidCompletionCb(int rc, const void *data) {
-
     auto promise = promiseFromData(data);
-
     struct ZKResult result(rc);
     promise->set_value(std::move(result));
   }
 
-  std::future<ZKResult> ZKClient::del_async(std::string path, int version) {
+  std::future<ZKResult> zk_client::del_async(std::string path, int version) {
     auto promise = std::make_unique<std::promise<ZKResult>>();
     auto future = promise->get_future();
 
@@ -477,12 +463,12 @@ namespace kspp {
     return future;
   }
 
-  ZKResult ZKClient::del(std::string path, int version) {
+  ZKResult zk_client::del(std::string path, int version) {
     int rc = zoo_delete(zoo_, path.c_str(), version);
     int maxTries = kMaxTriesPerSyncOperation;
     while (maxTries-- > 0 && (rc == ZINVALIDSTATE || retryable(rc))) {
       CHECK(getState() != ZOO_AUTH_FAILED_STATE);
-      ZKClient::rawInitHandle(this);
+      zk_client::rawInitHandle(this);
       rc = zoo_delete(zoo_, path.c_str(), version);
     }
 

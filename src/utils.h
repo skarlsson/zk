@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 
 #include <string>
 
@@ -24,3 +24,5 @@ private:
   std::string host_and_ports_;
   std::string path_;
 };
+*/
+

@@ -1,31 +1,28 @@
-#ifndef BOLT_ZOOKEEPER_HPP
-#define BOLT_ZOOKEEPER_HPP
-
 #include <future>
 #include <tuple>
 #include <functional>
 #include <type_traits>
 #include <utility>
 #include <thread>
-#include <zookeeper/zookeeper.h>
-#include <folly/io/IOBuf.h>
-#include <boost/optional.hpp>
+#include <vector>
 #include <atomic>
 #include <limits>
 #include <mutex>
+#include <boost/optional.hpp>
+#include <zookeeper/zookeeper.h>
+
+#pragma once
 
 namespace kspp {
-  using namespace ::folly;
-
-  class ZKClient;
+  class zk_client;
 
   struct ZKResult {
     ZKResult(int rc,
              boost::optional<Stat> stat = boost::none,
-             std::unique_ptr<folly::IOBuf> val = nullptr)
+             std::string val = std::string())
             : result(rc), status(stat), buff(std::move(val)) {}
 
-    const uint8_t *data() const { return buff->data(); }
+    //const uint8_t *data() const { return buff->data(); }
 
     bool ok() {
       return result == ZOK; // might need something else
@@ -51,7 +48,7 @@ namespace kspp {
     //                     , const char *tag, struct Stat*v);
     // void deallocate_Stat(struct Stat*); std::future
     boost::optional<Stat> status;
-    std::unique_ptr<folly::IOBuf> buff;
+    std::string buff;
     // represents the strings api of zookeeper
     // when the appropriate call is made - i.e.: zoo_wget_children2
     // cannot be a std::set! must keep zoo api fidelity.
@@ -68,9 +65,9 @@ namespace kspp {
     std::vector<std::string> strings;
   };
 
-  typedef std::function<void(int, int, const std::string, ZKClient *)> ZKWatchCb;
+  typedef std::function<void(int, int, const std::string, zk_client *)> ZKWatchCb;
 
-  class ZKClient {
+  class zk_client {
   public:
     static std::string printZookeeperEventType(int type);
 
@@ -78,14 +75,14 @@ namespace kspp {
 
     static bool retryable(int rc);
 
-    static void rawInitHandle(ZKClient *);
+    static void rawInitHandle(zk_client *);
 
 
     enum { NO_TIMEOUT = std::numeric_limits<int>::max() };
 
     template<class F>
-    ZKClient(F &&watch,
-             const std::string &hosts = "127.0.0.1:2181",
+    zk_client(F &&watch,
+             std::string hosts = "127.0.0.1:2181",
              int timeout = 30, // ms std::future
              int flags = 0,
              bool block = true)
@@ -93,7 +90,7 @@ namespace kspp {
       init(block);
     }
 
-    ~ZKClient();
+    ~zk_client();
 
     std::future<ZKResult> children_async(std::string path, bool watch = false);
 
@@ -104,23 +101,21 @@ namespace kspp {
     ZKResult get(std::string path, bool watch = false);
 
     std::future<ZKResult>
-    set_async(std::string path, std::unique_ptr<folly::IOBuf> &&val, int version = -1);
+    set_async(std::string path, std::string val, int version = -1);
 
-    ZKResult set(std::string path,
-                 std::unique_ptr<folly::IOBuf> &&val,
-                 int version = -1);
+    ZKResult set(std::string path, std::string val, int version = -1);
 
     std::future<ZKResult> exists_async(std::string path, bool watch = false);
 
     ZKResult exists(std::string path, bool watch = false);
 
     std::future<ZKResult> create_async(std::string path,
-                                       std::unique_ptr<folly::IOBuf> &&val,
+                                       std::string val,
                                        ACL_vector *acl,
                                        int flags);
 
     ZKResult create(std::string path,
-                    std::unique_ptr<folly::IOBuf> &&val,
+                    std::string val,
                     ACL_vector *acl,
                     int flags);
 
@@ -166,5 +161,3 @@ namespace kspp {
     int maxSessionConnTries_ = {600};
   };
 }
-
-#endif

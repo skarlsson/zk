@@ -1,21 +1,22 @@
-#include "ZKLeader.hpp"
+#include "zk_leader.h"
 #include <iostream>
 #include <deque>
 #include <numeric>
+#include <glog/logging.h>
 
 using namespace std::chrono_literals;
 using namespace kspp;
 
-std::string s_zkUri("127.0.0.1:2181,192.168.100.44:2181/nissegul");
+std::string s_zkUri("zk://127.0.0.1:2181,192.168.100.44:2181/nissegul");
 const std::string s_uuid = "56912496-7904-4933-8b84-8042948df297";
 
-void init(std::deque<std::shared_ptr<kspp::ZKLeader>> &leaders, size_t count) {
+void init(std::deque<std::shared_ptr<kspp::zk_leader>> &leaders, size_t count) {
 
   for (int i = 0; i != count; ++i) {
-    leaders.push_back(std::make_shared<kspp::ZKLeader>(s_zkUri,
+    leaders.push_back(std::make_shared<kspp::zk_leader>(s_zkUri,
                                                        s_uuid,
-                                                       [](kspp::ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
-                                                       [](int type, int state, std::string path, kspp::ZKClient *) {
+                                                       [](kspp::zk_leader *) { LOG(INFO) << "testbody leader cb"; },
+                                                       [](int type, int state, std::string path, kspp::zk_client *) {
                                                          LOG(INFO) << "callback type:" << type << ", state: " << state
                                                                    << ", path:" << path;
                                                        }));
@@ -25,7 +26,7 @@ void init(std::deque<std::shared_ptr<kspp::ZKLeader>> &leaders, size_t count) {
 int main(int argc, char **argv) {
 
 
-  std::deque<std::shared_ptr<kspp::ZKLeader>> leaders;
+  std::deque<std::shared_ptr<kspp::zk_leader>> leaders;
 
   init(leaders, 20);
   {
@@ -40,7 +41,7 @@ int main(int argc, char **argv) {
       LOG(INFO) << "Leaders ID's left: "
                 << std::accumulate(
                         leaders.begin(), leaders.end(), std::string(),
-                        [](const std::string &a, std::shared_ptr<ZKLeader> b) {
+                        [](const std::string &a, std::shared_ptr<zk_leader> b) {
                           auto bstr = std::to_string(b->id());
                           return (a.empty() ? bstr : a + "," + bstr);
                         });
@@ -86,11 +87,11 @@ int main(int argc, char **argv) {
       std::this_thread::yield();
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
       if (maxNumberOfAdditions-- > 0) {
-        leaders.push_back(std::make_shared<ZKLeader>(
+        leaders.push_back(std::make_shared<zk_leader>(
                 s_zkUri,
                 s_uuid,
-                [](ZKLeader *) { LOG(INFO) << "testbody leader cb"; },
-                [](int type, int state, std::string path, ZKClient *cli) {
+                [](zk_leader *) { LOG(INFO) << "testbody leader cb"; },
+                [](int type, int state, std::string path, zk_client *cli) {
                   LOG(INFO) << "testbody zoo cb";
                 }));
         std::this_thread::yield();
@@ -104,7 +105,7 @@ int main(int argc, char **argv) {
       LOG(INFO) << "Leaders ID's left: "
                 << std::accumulate(
                         leaders.begin(), leaders.end(), std::string(),
-                        [](const std::string &a, std::shared_ptr<ZKLeader> b) {
+                        [](const std::string &a, std::shared_ptr<zk_leader> b) {
                           auto bstr = std::to_string(b->id());
                           return (a.empty() ? bstr : a + "," + bstr);
                         });
@@ -139,14 +140,14 @@ int main(int argc, char **argv) {
 //TEST(ZookeeperLeaderEphemeralNode, id_parsing)
   {
     auto str = "asdfasdfasdf_70f7d1ad-6a4c-4ad4-b187-d33483ebd728_n_0000000002";
-    auto ret = ZKLeader::extractIdFromEphemeralPath(str);
+    auto ret = zk_leader::extractIdFromEphemeralPath(str);
     assert(ret.get() == 2);
   }
 
 //TEST(ZookeeperLeaderEphemeralNode, id_parsing_bad_id)
   {
     auto str = "asdfasdfasdf_70f7d1ad-6a4c-4ad4-b187-d33483ebd728_asdfasdf";
-    auto ret = ZKLeader::extractIdFromEphemeralPath(str);
+    auto ret = zk_leader::extractIdFromEphemeralPath(str);
     assert(boost::none == ret);
   }
 
@@ -154,7 +155,7 @@ int main(int argc, char **argv) {
   {
     // match hast to be exactly 10 digits as specified by zk api
     auto str = "asdfasdfasdf_70f7d1ad-6a4c-4ad4-b187-d33483ebd728_n_000000002";
-    auto ret = ZKLeader::extractIdFromEphemeralPath(str);
+    auto ret = zk_leader::extractIdFromEphemeralPath(str);
     assert(boost::none == ret);
   }
 }

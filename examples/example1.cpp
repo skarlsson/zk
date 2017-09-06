@@ -1,43 +1,39 @@
-#include "ZKClient.hpp"
+#include "zk_client.h"
 #include <iostream>
 
 using namespace std::chrono_literals;
 
 int main(int argc, char **argv) {
-  kspp::ZKClient zk([](int type, int state, std::string path, kspp::ZKClient *) {
+  kspp::zk_client zk([](int type, int state, std::string path, kspp::zk_client *) {
     std::cerr << "callback type:" << type << ", state: " << state << ", path:" << path << std::endl;
   });
 
   {
-    auto data = folly::IOBuf::copyBuffer("thingo", 6);
-    auto result = zk.set("/foobar", std::move(data));
+    auto result = zk.set("/foobar", "thingo");
     assert(result.result == ZNONODE);
   }
 
   {
     assert(zk.exists("/foobar").ok() == false);
-    auto data = folly::IOBuf::copyBuffer("thingo", 7);
-    auto result = zk.create("/foobar", std::move(data), &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL);
+    auto result = zk.create("/foobar", "thingo", &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL);
     assert(result.ok() == true);
 
     assert(zk.exists("/foobar").ok() == true);
     auto nodeTuple = zk.get("/foobar");
-    assert(strcmp((char *) nodeTuple.data(), (char *) data->data()) == 0);
+    assert(nodeTuple.buff == "thingo");
+    //assert(strcmp((char *) nodeTuple.data(), (char *) data->data()) == 0);
   }
 
   {
-    auto data = folly::IOBuf::copyBuffer("thingo", 7);
-    zk.create("/foobar", std::move(data), &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL);
-    auto data2 = folly::IOBuf::copyBuffer("asdf", 5);
-    auto result = zk.set("/foobar", std::move(data2));
+    zk.create("/foobar", "thingo", &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL);
+    auto result = zk.set("/foobar", "asdf");
     assert(result.ok() == true);
     auto nodeTuple = zk.get("/foobar");
-    assert(strcmp((char *) nodeTuple.data(), (char *) data2->data()) == 0);
+    assert(nodeTuple.buff == "asdf");
   }
 
   {
-    auto data = folly::IOBuf::copyBuffer("thingo", 7);
-    zk.create("/foobar", std::move(data), &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL);
+    zk.create("/foobar", "thingo", &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL);
     auto delResult = zk.del("/foobar");
     assert(delResult.ok() == true);
   }
